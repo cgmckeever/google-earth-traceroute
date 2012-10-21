@@ -1,0 +1,41 @@
+<?php
+
+
+//$SID = $_REQUEST['PHPSESSID'];
+//session_id($SID);
+session_start();
+
+$result = $_SESSION['result'];
+
+$output .= "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+$output .= "<kml xmlns=\"http://earth.google.com/kml/2.0\">\n";
+
+$output .= "<Document>\n";
+$output .= "<Folder>\n";
+$output .= "<open>1</open>";
+$output .= "<visibility>1</visibility>";
+if (is_array($result)){
+
+	$output .= "<name>Trace Complete</name>";
+	$output .= "<LookAt>";
+	$output .= "<range>50</range>";
+	$output .= "<latitude>{$result[0]['latitude']}</latitude>";
+	$output .= "<longitude>{$result[0]['longitude']}</longitude>";
+
+	$output .= "</LookAt>";
+
+	$output .= "<description><![CDATA[Double Click To Start Mapping]]></description>";
+
+	}else{
+
+	$output .= "<name>No Trace Results Found</name>";
+
+}
+
+$output .= "</Folder>\n";
+$output .= "</Document>\n";
+$output .= "</kml>\n";
+
+print $output;
+
+?>

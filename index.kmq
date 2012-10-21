@@ -1,0 +1,141 @@
+<?php
+
+include_once('traceroute/function.php');
+
+$SID = $_REQUEST['PHPSESSID'];
+//session_id($SID);
+session_start();
+
+$directory = "traceroute";
+
+$result = $_SESSION['result'];
+
+$geocode = ip_geocode($session_array['remote_ip']);
+
+$output .= "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+$output .= "<kml xmlns=\"http://earth.google.com/kml/2.0\">\n";
+
+$output .= "<Document>\n";
+$output .= "<name>You Are In {$geocode['city']}</name>";
+
+// this is the reposition lookat
+
+if (is_array($result)){
+	
+	$lookat = false;
+	foreach($result as $leg){
+		if ($lookat == false){
+
+		if($leg['process'] == true AND $leg['zoom'] == true){
+			$view_lat = $leg['latitude'];
+                        $view_long = $leg['longitude'];
+		}elseif($view_lat == $leg['latitude']
+                        AND $view_long == $leg['longitude']){
+			$leg['process'] = true;
+			$leg['zoom'] = true;
+		}elseif(strlen($leg['longitude']) != 0 
+			AND strlen($leg['latitude']) != 0  
+			AND ($leg['process'] == false OR $leg['zoom'] == false)
+			AND $lookat == false){
+			$output .= "<LookAt>\n";
+			$output .= "<longitude>{$leg['longitude']}</longitude>";
+        		$output .= "<latitude>{$leg['latitude']}</latitude>\n";
+			if ($leg['process'] == true){ 
+				$output .= "<range>200</range>\n";
+				$leg['zoom'] = true;
+			}else{
+				if (intval($_SESSION['zoom']) == 0){
+					$leg['zoom'] = true;
+					$range_value = 250000;
+				}else $range_value = 2500000;
+				$output .= "<range>$range_value</range>\n";
+				$leg['process'] = true;
+			}
+			$output .= "</LookAt>\n";
+			$view_lat = $leg['latitude'];
+			$view_long = $leg['longitude'];
+			$lookat = true;
+		}	
+
+		} // $lookat == false
+		
+		$update_result[] = $leg;
+	}
+
+	if ($lookat == false){
+		// there were no new zoom points
+		$output .= "<Folder>\n";
+		$output .= "<name>Replay TraceRoute Tour</name>\n";
+		$output .= "<description><![CDATA[Replay Route by <A href=\"http://www.potf.net/{$directory}/index.php?reset=1&PHPSESSID={$SID}\">Clicking Here</A>]]></description>";
+		$output .= "</Folder>\n";
+
+	}
+
+
+	$_SESSION['result'] = $update_result;
+	reset($result);
+
+}else{
+	$output .= "<LookAt>\n";
+	$output .= "<longitude>{$geocode['longitude']}</longitude>";
+	$output .= "<latitude>{$geocode['latitude']}</latitude>\n";
+	$output .= "<range>250000</range>\n";
+	$output .= "</LookAt>\n";
+}
+
+
+$output .= "<Placemark>";
+$output .= "<description><![CDATA[Start a traceroute by <A href=\"http://www.potf.net/{$directory}/index.php?PHPSESSID={$SID}\">Clicking Here</A>]]></description>";
+$output .= "<name>You Are In {$geocode['city']}</name>";
+$output .= "<Point>\n";
+$output .= "<coordinates>{$geocode['longitude']},{$geocode['latitude']},0</coordinates>\n";
+$output .= "</Point>\n";
+$output .= "</Placemark>";
+
+if (is_array($result)){
+	foreach($result AS $leg){
+
+		if(strlen($leg['latitude']) != 0  
+			AND strlen($leg['longitude']) != 0){
+			$output .= "<Placemark>";
+			$output .= "<description><![CDATA[{$leg['city']}-{$leg['country']}<BR>{$leg['host']}<BR>{$leg['ip']}<BR>{$leg['time']}{$leg['unit']}]]></description>";
+			$output .= "<name>{$leg['city']}-{$leg['country']}</name>";
+			$output .= "<Point>\n";
+			$output .= "<coordinates>{$leg['longitude']},{$leg['latitude']},0</coordinates>\n";
+			$output .= "</Point>\n";
+			$output .= "</Placemark>";
+
+			$coords .= "{$leg['longitude']},{$leg['latitude']},0 ";
+		}
+	}
+
+	if (strlen($coords) != 0){
+		$output .= "<Placemark><name>The Internet</name><LineString>\n";
+		$output .= "<tessellate>1</tessellate>\n";
+		$output .= "<coordinates>$coords</coordinates>\n";
+		$output .= "</LineString></Placemark>\n";
+	}
+	
+}else{
+
+	$output .= "<NetworkLink>";
+	$output .= "<name>Trace Results</name>";
+	$output .= "<Url>";
+	$output .= "<href>http://www.potf.net/{$directory}/check.kmq?PHPSESSID={$SID}</href>";
+	$output .= "<refreshMode>onInterval</refreshMode>";
+	$output .= "<refreshInverval>2</refreshInverval>";
+	$output .= "<refreshVisibility>1</refreshVisibility>";
+	$output .= "</Url>";
+	$output .= "</NetworkLink>";
+
+}
+
+$output .= "</Document>\n";
+
+$output .= "</kml>\n";
+
+
+print $output;
+
+
+?>
